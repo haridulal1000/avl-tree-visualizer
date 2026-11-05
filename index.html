@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AVL Tree Visualizer · WebGL</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div id="stage">
+    <div id="frame">
+      <canvas id="gl"></canvas>
+      <canvas id="fx"></canvas>
+      <div id="status" class="status">Ready</div>
+    </div>
+  </div>
+
+  <aside id="panel">
+
+    <header class="brand">
+      <h1>AVL<span>visualizer</span></h1>
+    </header>
+
+    <section class="card">
+      <h2>Dataset</h2>
+      <textarea id="dataInput" rows="3" spellcheck="false"
+        data-tip="Comma-separated numbers used to build the tree."></textarea>
+      <label class="slider compact">
+        <span class="lbl">Size</span>
+        <input id="randCount" type="range" min="3" max="60" value="18"
+          data-tip="How many random numbers to generate for the default dataset." />
+        <span id="vRandCount" class="val">18</span>
+      </label>
+      <div class="row">
+        <button id="btnRandom" class="ghost"
+          data-tip="Fill the dataset with fresh random numbers.">Randomize</button>
+        <button id="btnBuild" class="primary"
+          data-tip="Build an AVL tree from the dataset, animating every insertion.">Build tree</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Operations</h2>
+
+      <div class="field">
+        <label>Insert</label>
+        <div class="row">
+          <input id="insertInput" type="text" placeholder="12, 7, 33"
+            data-tip="Numbers to insert, separated by commas." />
+          <button id="btnInsert" class="primary sm"
+            data-tip="Animate insertion of each number.">Run</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Search</label>
+        <div class="row">
+          <input id="searchInput" type="text" placeholder="12, 45"
+            data-tip="Numbers to search for, separated by commas." />
+          <button id="btnSearch" class="primary sm"
+            data-tip="Animate the search path for each number.">Run</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Update</label>
+        <div class="row">
+          <input id="updateInput" type="text" placeholder="12:99, 7:70"
+            data-tip="Pairs written as old:new, e.g. 12:99." />
+          <button id="btnUpdate" class="primary sm"
+            data-tip="Find each old key, delete it, then insert the new key.">Run</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Delete</label>
+        <div class="row">
+          <input id="deleteInput" type="text" placeholder="12, 45"
+            data-tip="Numbers to delete, separated by commas." />
+          <button id="btnDelete" class="primary sm"
+            data-tip="Animate deletion and any rebalancing that follows.">Run</button>
+        </div>
+      </div>
+
+      <label class="slider" style="margin-top:12px">
+        <span class="lbl">Pause</span>
+        <input id="sPause" type="range" min="0" max="5" step="0.1" value="1"
+          data-tip="Seconds to wait after each CRUD operation. Applies to both Autoplay and Export." />
+        <span id="vPause" class="val">1.0s</span>
+      </label>
+
+      <div class="row" style="margin-top:8px">
+        <button id="btnAutoplay" class="primary"
+          data-tip="Run Build, Insert, Search, Update and Delete in sequence using all current inputs.">▶ Autoplay all</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Export</h2>
+      <div class="info-line">
+        Estimated length: <span id="lengthInfo">—</span>
+      </div>
+      <button id="btnExport" class="primary"
+        data-tip="Render the CRUD sequence to an MP4 using WebCodecs — faster than realtime.">⬇ Export video</button>
+    </section>
+
+    <section class="card">
+      <h2>Playback</h2>
+      <div class="row">
+        <button id="btnPlay" class="primary"
+          data-tip="Pause or resume playback of the animation.">Pause</button>
+        <button id="btnStepBack" class="ghost"
+          data-tip="Go back one animation frame.">◀ Step</button>
+        <button id="btnStepFwd" class="ghost"
+          data-tip="Advance one animation frame.">Step ▶</button>
+      </div>
+      <input id="scrub" class="scrub" type="range" min="0" max="0" value="0" step="1"
+        data-tip="Drag to scrub through the whole animation timeline." />
+      <div class="row between">
+        <span id="frameLabel" class="mono">0 / 0</span>
+        <button id="btnRestart" class="ghost sm"
+          data-tip="Jump back to the first frame and resume playback.">Restart</button>
+      </div>
+    </section>
+
+      <section class="card">
+      <h2>Canvas</h2>
+      <select id="aspectPreset" data-tip="Choose the canvas shape — 16:9 for long videos, 9:16 for Shorts.">
+        <option value="16:9">16:9 — Long video</option>
+        <option value="9:16">9:16 — Short video</option>
+        <option value="1:1">1:1 — Square</option>
+        <option value="4:3">4:3 — Classic</option>
+        <option value="21:9">21:9 — Cinema</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <div class="row aspect-row">
+        <input id="aspectW" type="number" min="1" max="100" value="16"
+          data-tip="Canvas width part of the aspect ratio (e.g. 16 in 16:9)." />
+        <span class="mono">:</span>
+        <input id="aspectH" type="number" min="1" max="100" value="9"
+          data-tip="Canvas height part of the aspect ratio (e.g. 9 in 16:9)." />
+      </div>
+
+      <div class="field" style="margin-top:12px; margin-bottom:0">
+        <label>Background theme</label>
+        <select id="themeSelect"
+          data-tip="Solid or grid background. Exported videos use the same theme.">
+          <option value="midnight">Midnight</option>
+          <option value="slate">Slate</option>
+          <option value="navy">Deep Navy</option>
+          <option value="forest">Forest</option>
+          <option value="plum">Plum</option>
+          <option value="gridDark">Grid · Dark</option>
+          <option value="gridNavy">Grid · Navy</option>
+          <option value="gridWarm">Grid · Warm</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Typography</h2>
+      <select id="fontFamily" data-tip="Font used for labels drawn on the canvas and the think box.">
+        <option value="system">System sans</option>
+        <option value="sans">Arial / Helvetica</option>
+        <option value="serif">Georgia / Serif</option>
+        <option value="mono">Monospace</option>
+        <option value="rounded">Trebuchet / Rounded</option>
+      </select>
+      <label class="slider" style="margin-top:10px">
+        <span class="lbl">Labels</span>
+        <input id="sFont" type="range" min="0.7" max="1.8" step="0.05" value="1"
+          data-tip="Scale factor for canvas label text drawn inside the nodes." />
+        <span id="vFont" class="val">1.00×</span>
+      </label>
+      <label class="slider">
+        <span class="lbl">Think</span>
+        <input id="sBubble" type="range" min="0.7" max="2.2" step="0.05" value="1"
+          data-tip="Text size multiplier for the think-box overlay." />
+        <span id="vBubble" class="val">1.00×</span>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Animation</h2>
+      <label class="slider">
+        <span class="lbl">Master</span>
+        <input id="sSpeed" type="range" min="0.25" max="4" step="0.05" value="1"
+          data-tip="Overall playback speed multiplier." />
+        <span id="vSpeed" class="val">1.00×</span>
+      </label>
+      <label class="slider">
+        <span class="lbl">Logic</span>
+        <input id="sLogic" type="range" min="0.25" max="3" step="0.05" value="1"
+          data-tip="Speed of the algorithm's comparison steps." />
+        <span id="vLogic" class="val">1.00×</span>
+      </label>
+      <label class="slider">
+        <span class="lbl">Structure</span>
+        <input id="sStruct" type="range" min="0.25" max="3" step="0.05" value="1"
+          data-tip="Speed of node movement and layout transitions." />
+        <span id="vStruct" class="val">1.00×</span>
+      </label>
+      <label class="slider">
+        <span class="lbl">Camera</span>
+        <input id="sCamera" type="range" min="0.2" max="4" step="0.05" value="1"
+          data-tip="How quickly the camera zooms and pans." />
+        <span id="vCamera" class="val">1.00×</span>
+      </label>
+      <label class="slider">
+        <span class="lbl">Spread</span>
+        <input id="sSpread" type="range" min="0.6" max="3" step="0.05" value="1.35"
+          data-tip="Horizontal spacing between neighbouring nodes." />
+        <span id="vSpread" class="val">1.35</span>
+      </label>
+      <label class="slider">
+        <span class="lbl">Node</span>
+        <input id="sNode" type="range" min="0.18" max="0.7" step="0.01" value="0.38"
+          data-tip="Radius of the drawn nodes." />
+        <span id="vNode" class="val">0.38</span>
+      </label>
+      <label class="slider">
+        <span class="lbl">Zoom</span>
+        <input id="sZoom" type="range" min="0.5" max="1.8" step="0.02" value="1"
+          data-tip="Extra zoom on top of the automatic fit." />
+        <span id="vZoom" class="val">1.00×</span>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Display</h2>
+      <div class="chips">
+        <label class="chip" data-tip="Show each node's key inside the circle.">
+          <input id="cValues" type="checkbox" checked /><span>Values</span>
+        </label>
+        <label class="chip" data-tip="Show subtree heights under each value.">
+          <input id="cHeights" type="checkbox" /><span>Heights</span>
+        </label>
+        <label class="chip" data-tip="Show balance factors (left height minus right height).">
+          <input id="cBF" type="checkbox" /><span>Balance</span>
+        </label>
+        <label class="chip" data-tip="Highlight the comparison path currently being followed.">
+          <input id="cFlow" type="checkbox" checked /><span>Path flow</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="card log-card">
+      <h2>Trace</h2>
+      <div id="log" class="log"></div>
+    </section>
+
+  </aside>
+
+  <div id="exportModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Export video</h3>
+      <p class="modal-sub">
+        Renders the CRUD sequence with WebGL and encodes it offline.
+        <span class="modal-length">Video length: <span id="exportLength">—</span></span>
+      </p>
+
+      <label class="modal-label">Resolution</label>
+      <select id="exportQuality">
+        <option value="480">480p</option>
+        <option value="720" selected>720p</option>
+        <option value="1080">1080p</option>
+        <option value="1440">1440p</option>
+      </select>
+
+      <label class="modal-label">Framerate</label>
+      <select id="exportFps">
+        <option value="24">24 fps</option>
+        <option value="30">30 fps</option>
+        <option value="60" selected>60 fps</option>
+      </select>
+
+      <div class="modal-buttons">
+        <button id="exportCancel" class="ghost">Cancel</button>
+        <button id="exportStart" class="primary">Export</button>
+      </div>
+
+      <div id="exportProgress" class="hidden">
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+        <div class="progress-text">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tip" class="tip" role="tooltip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"
+          crossorigin="anonymous"
+          onerror="console.warn('mp4-muxer failed to load; export will fall back to WebM.')"></script>
+
+  <script src="js/layout.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/overlay.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
